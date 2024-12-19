@@ -29,8 +29,19 @@ async function run() {
       .collection("job_applications");
 
     app.get("/jobs", async (req, res) => {
-      const cursor = jobsCollection.find();
+      const email = req.query.email;
+      let query = {};
+      if (email) {
+        query = { hr_email: email };
+      }
+      const cursor = jobsCollection.find(query);
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.post("/jobs", async (req, res) => {
+      const newJob = req.body;
+      const result = await jobsCollection.insertOne(newJob);
       res.send(result);
     });
 
@@ -47,31 +58,37 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/job-applications/jobPost/:id", async (req, res) => {
+      const jobId = req.params.id;
+      const query = { job_id: jobId };
+      const result = await jobApplyCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.get("/job-applies", async (req, res) => {
       const email = req.query.email;
       const query = { applicant_email: email };
       const result = await jobApplyCollection.find(query).toArray();
 
-
-       const filteredJobs = await Promise.all(
+      const filteredJobs = await Promise.all(
         result.map(async (applications) => {
-            const jobId = applications.job_id;
-            const jobQuery = {_id: new ObjectId(jobId)}
-            const getJobs = await jobsCollection.findOne(jobQuery)
+          const jobId = applications.job_id;
+          const jobQuery = { _id: new ObjectId(jobId) };
+          const getJobs = await jobsCollection.findOne(jobQuery);
 
-            if(getJobs){
-                applications.title = getJobs.title;
-                applications.company = getJobs.company;
-                applications.location = getJobs.location;
-                applications.jobType = getJobs.jobType;
-                applications.salaryRange = getJobs.salaryRange;
-                applications.company_logo = getJobs.company_logo;
-                applications.requirements = getJobs.requirements;
-                applications.applicationDeadline = getJobs.applicationDeadline;
-            }
-            return applications
-          })
-       )
+          if (getJobs) {
+            applications.title = getJobs.title;
+            applications.company = getJobs.company;
+            applications.location = getJobs.location;
+            applications.jobType = getJobs.jobType;
+            applications.salaryRange = getJobs.salaryRange;
+            applications.company_logo = getJobs.company_logo;
+            applications.requirements = getJobs.requirements;
+            applications.applicationDeadline = getJobs.applicationDeadline;
+          }
+          return applications;
+        })
+      );
       res.send(filteredJobs);
     });
 
