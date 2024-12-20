@@ -1,12 +1,15 @@
 const express = require("express");
 const cors = require("cors");
 const app = express();
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser')
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
-app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
+app.use(cors());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@movies.yat9m.mongodb.net/?retryWrites=true&w=majority&appName=Movies`;
 
@@ -27,6 +30,20 @@ async function run() {
     const jobApplyCollection = client
       .db("jobPortal")
       .collection("job_applications");
+
+    // Auth Related API
+    //require('crypto').randomBytes(64).toString('hex')  use this node cmmd
+    app.post("/jwt", async(req,res)=>{
+      const user = req.body;
+      const token = jwt.sign(user, process.env.JWT_SECRET, {expiresIn: '1h'});
+      res
+      .cookie('token', token,{
+        httpOnly:true,
+        secure:false
+      })
+      .send({success: true});
+
+    })
 
     app.get("/jobs", async (req, res) => {
       const email = req.query.email;
@@ -57,6 +74,19 @@ async function run() {
       const result = await jobApplyCollection.insertOne(application);
       res.send(result);
     });
+
+    app.patch("/job-applications/:id", async(req,res)=>{
+      const id = req.params.id;
+      const data = req.body;
+      const filter = {_id: new ObjectId(id)};
+      const updatedDoc = {
+        $set:{
+          status: data.status
+        }
+      }
+      const result = await jobApplyCollection.updateOne(filter,updatedDoc)
+      res.send(result)
+    })
 
     app.get("/job-applications/jobPost/:id", async (req, res) => {
       const jobId = req.params.id;
